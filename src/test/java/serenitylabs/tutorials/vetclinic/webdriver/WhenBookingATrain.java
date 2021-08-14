@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.Select;
 
@@ -20,54 +21,100 @@ import static org.hamcrest.core.Is.is;
 
 public class WhenBookingATrain {
     WebDriver driver;
-
+    private final String  fromLocationtext = "Town Hall Station";
+    private final String  toLocationtext = "Perramatta Station";
     @Before
-    public void setup() {
-        driver = new FirefoxDriver();
-        driver.manage().timeouts().implicitlyWait(3, TimeUnit.SECONDS);
-        driver.get("http://www.sydneytrains.info/");
+    public void setup() throws InterruptedException {
+//        System.setProperty("webdriver.gecko.driver","C:\\geckodriver.exe");
+//        driver = new FirefoxDriver();
+        System.setProperty("webdriver.chrome.driver", "C:\\chromedriver.exe");
+        driver = new ChromeDriver();
+        driver.manage().timeouts().implicitlyWait(60, TimeUnit.SECONDS);
+        driver.get("https://www.sydneytrains.info/");
+        Thread.sleep(2000);
+    }
+
+    @After
+    public void tearDown() {
+        //driver.quit();
     }
 
     @Test
     public void should_be_able_to_plan_a_trip() {
-        driver.findElement(By.id("display_origin")).sendKeys("Town Hall");
-        driver.findElement(By.id("display_destination")).sendKeys("Parramatta");
-
-        driver.findElement(By.id("itdTripDateTimeArr")).click();
-
-        new Select(driver.findElement(By.cssSelector("#itdDate"))).selectByIndex(1);
-
-        Select hour = new Select(driver.findElement(By.cssSelector("#itdTimeHour")));
-        hour.selectByVisibleText("10");
-
-        Select minute = new Select(driver.findElement(By.cssSelector("#itdTimeMinute")));
-        minute.selectByVisibleText("15");
-
-        driver.findElement(By.name("btnTripPlannerSubmit")).click();
-
-        List<WebElement> tripOptions = driver.findElements(By.cssSelector(".journeyValue"));
-
-        String arriveOrDepart = new Select(driver.findElement(By.id("SelectArriveDepart"))).getFirstSelectedOption().getText();
-        String displayedOrigin = driver.findElement(By.id("name_origin")).getAttribute("value");
-        String displayedDestination = driver.findElement(By.id("name_destination")).getAttribute("value");
-        String arrivalDay = new Select(driver.findElement(By.id("itdDateDayMonthYear"))).getFirstSelectedOption().getText();
-        String arrivalHour = new Select(driver.findElement(By.id("selectHour"))).getFirstSelectedOption().getText();
-        String arrivalMinute = new Select(driver.findElement(By.id("selectMinute"))).getFirstSelectedOption().getText();
-
-        assertThat(tripOptions.size(), is(greaterThan(0)));
-
-        assertThat(arriveOrDepart, equalTo("arrive before"));
-        assertThat(displayedOrigin, containsString("Town Hall"));
-        assertThat(displayedDestination, containsString("Parramatta"));
-        assertThat(arriveOrDepart, equalTo("arrive before"));
-        assertThat(arrivalDay, containsString("Tomorrow"));
-        assertThat(arrivalHour, equalTo("10"));
-        assertThat(arrivalMinute, equalTo("15"));
-    }
 
 
-    @After
-    public void shutdown() {
-        driver.quit();
+
+        //Step:1 select from location
+        WebElement fromLocation = driver.findElement(By.cssSelector("#tniFromTripLocation.autosuggest-input.form-control"));
+        //fromlistAutoPolulated  css selector  : div.autosuggest-buttons.ng-star-inserted
+
+        fromLocation.clear();
+        fromLocation.click();
+
+        fromLocation.sendKeys("Town Hall Station");
+        WebElement fromAutoPopulated = driver.findElement(By.xpath("//div [contains(@class,'autosuggest-buttons')]//div[contains(.,'Town Hall Station')]"));
+        fromAutoPopulated.click();
+
+// search for the text and select logic.
+
+        //Step:2 select  To Location
+        WebElement toLocation = driver.findElement(By.xpath("//input[@id='tniToTripLocation'] [contains(@class,'autosuggest-input')]"));
+        toLocation.clear();
+        toLocation.click();
+        toLocation.sendKeys("Parramatta Rd");
+        WebElement toAutoPopulated = driver.findElement(By.xpath("//div [contains(@class,'autosuggest-buttons')]//div[contains(.,'Parramatta Rd')]"));
+        toAutoPopulated.click();
+
+        //Step:3 click on More Options Link
+
+        WebElement MoreOptionsLink = driver.findElement(By.xpath("//button[contains(@class,'more-options-link')]"));
+        MoreOptionsLink.click();
+        //Step:4  click on leaving now
+
+        WebElement LeavingNowTabTitle = driver.findElement(By.xpath("//span[contains(@class,'tab-title')][contains(.,'Leaving')]"));
+        LeavingNowTabTitle.click();
+
+
+
+        //Step:5  click on leaving button  //label[contains(@class,'leaving')]/span[contains(.,'Leaving')]
+        WebElement LeavingButton = driver.findElement(By.xpath("//label[contains(@class,'leaving')]/span[contains(.,'Leaving')]"));
+        LeavingButton.click();
+
+        //Step:6 select date of travel
+        Select searchSelectDate = new Select(driver.findElement(By.id("search-select-date")));
+        // select hour  and minute
+//		searchSelectDate.selectByIndex(1);
+//		searchSelectDate.selectByValue("1");
+        searchSelectDate.selectByVisibleText("Tomorrow (Sat)");
+
+        //Step7: Select Hour :
+        Select searchSelectHour = new Select(driver.findElement(By.id("search-select-hour")));
+        searchSelectHour.selectByIndex(5);
+        //Step8: Select Minute:   #search-select-minute index : 00,05,10,15,20,25,30,35,40,45,50,55 value: 0 -11
+        Select searchSelectMinute = new Select(driver.findElement(By.id("search-select-hour")));
+        searchSelectMinute.selectByIndex(10);
+        //Step:9  click  on apply : //button[contains(@class,'date-time-btn')]
+        WebElement ApplyButton = driver.findElement(By.xpath("//button[contains(@class,'date-time-btn')]"));
+        ApplyButton.click();
+
+        assertThat(LeavingNowTabTitle.getText(), containsString("Leaving 4:10, tomorrow (Sat)"));
+
+        //Step10: verify for the trip planner results
+        List<WebElement> TripPlannerSummaries =  driver.findElements(By.xpath("//div[contains(@class,'card-wrapper')]//div [contains(@class,'summary-header')]"));
+        if(TripPlannerSummaries.size()>0) {
+            System.out.println(" Search results for the planner :  "+TripPlannerSummaries.size());
+        }
+
+        for(WebElement planSummary : TripPlannerSummaries) {
+            String textsummary = planSummary.getText();
+            System.out.println(" Trip planner details :  "+planSummary.getText());
+        }
+
+
+
+
+
+
+
     }
 }
